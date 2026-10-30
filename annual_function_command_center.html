@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101827">
+<title>Annual Function Command Center</title>
+<style>
+:root{--bg:#0b1220;--panel:#141f31;--panel2:#1c2a40;--text:#f8fafc;--muted:#a9b7ca;--line:#314158;--blue:#2563eb;--green:#15803d;--red:#b91c1c;--amber:#a16207}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:20px 16px 12px;max-width:900px;margin:auto}h1{font-size:clamp(24px,5vw,36px);line-height:1.1;margin:0 0 8px}h2{font-size:20px;margin:0 0 12px}p{color:var(--muted);margin:6px 0 12px}
+main{max-width:900px;margin:auto;padding:8px 16px 40px}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}
+label{display:block;font-weight:650;margin:12px 0 6px}input,select,textarea,button{font:inherit}input,select,textarea{width:100%;border:1px solid #53647c;border-radius:10px;background:#0d1727;color:var(--text);padding:12px}textarea{min-height:110px;resize:vertical}
+button{border:0;border-radius:11px;background:var(--blue);color:white;font-weight:750;padding:12px 16px;cursor:pointer}button.secondary{background:#334155}button.danger{background:var(--red)}button:disabled{opacity:.45;cursor:not-allowed}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:130px}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tabs button{flex:1}.small{font-size:13px;color:var(--muted)}.status{padding:9px 12px;border-radius:10px;background:#1e293b;color:#cbd5e1;margin:10px 0}.ok{background:#123323;color:#bbf7d0}.err{background:#3b1515;color:#fecaca}.hidden{display:none!important}.pill{display:inline-block;padding:4px 9px;border-radius:999px;background:#334155;font-size:12px;font-weight:800;letter-spacing:.04em}
+#displayScreen{min-height:72vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border-radius:18px;padding:24px;background:#1e3a8a;white-space:pre-wrap;overflow-wrap:anywhere}
+#displayScreen.normal{background:#1e3a8a}#displayScreen.urgent{background:#991b1b}#displayScreen.go{background:#166534}#displayScreen.stop{background:#111827}
+#displayMessage{font-size:clamp(30px,7vw,64px);font-weight:900;line-height:1.13;margin:20px 0;max-width:100%}
+#displayTarget{font-size:16px;letter-spacing:.1em;text-transform:uppercase}#displayMeta{font-size:13px;opacity:.85}
+.ack{background:#fff;color:#111827;margin-top:24px;font-size:18px;padding:15px 24px}
+footer{max-width:900px;margin:0 auto;padding:0 16px 28px;color:var(--muted);font-size:12px}
+hr{border:0;border-top:1px solid var(--line);margin:18px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Annual Function Command Center</h1>
+  <p>Send live full-screen announcements to everyone or a selected department.</p>
+</header>
+<main>
+  <section class="card" id="setupCard">
+    <h2>1. Connect your event database</h2>
+    <p>This prototype uses Firebase Realtime Database for live updates between phones. Create a Firebase project, enable Anonymous Authentication and Realtime Database, then paste your web app configuration below.</p>
+    <label for="firebaseConfig">Firebase web app config (JSON)</label>
+    <textarea id="firebaseConfig" spellcheck="false" placeholder='{"apiKey":"...","authDomain":"...","databaseURL":"https://YOUR-PROJECT-default-rtdb.firebaseio.com","projectId":"...","appId":"..."}'></textarea>
+    <div class="row">
+      <button id="connectBtn">Connect</button>
+      <button class="secondary" id="showHelpBtn">Setup instructions</button>
+    </div>
+    <div id="connectionStatus" class="status">Not connected yet.</div>
+    <div id="help" class="small hidden">
+      <b>Firebase setup:</b><br>
+      1. Go to <b>console.firebase.google.com</b> and create a project.<br>
+      2. Add a Web App (</>) and copy its config object.<br>
+      3. In Authentication → Sign-in method, enable <b>Anonymous</b>.<br>
+      4. In Realtime Database, create a database and copy its database URL into the config.<br>
+      5. For this prototype, set Realtime Database rules to:<br>
+      <code>{ "rules": { "rooms": { "$room": { ".read": "auth != null", ".write": "auth != null" } } } }</code><br>
+      6. Paste the full config above and tap Connect. This simple prototype rule is suitable only for a private, temporary event test. A production version should use stricter per-room authorization and server-side validation.
+    </div>
+  </section>
+
+  <section class="card" id="modeCard">
+    <h2>2. Choose this phone's role</h2>
+    <div class="tabs">
+      <button id="controllerTab">Controller phone</button>
+      <button class="secondary" id="displayTab">Team display phone</button>
+    </div>
+  </section>
+
+  <section class="card hidden" id="controllerPanel">
+    <h2>Controller dashboard</h2>
+    <div class="row">
+      <div><label for="roomCode">Event room code</label><input id="roomCode" autocomplete="off" placeholder="Create or enter a room code"></div>
+      <div style="align-self:end"><button id="createRoomBtn">Generate private code</button></div>
+    </div>
+    <p class="small">Share the same room code with team members. Keep it private and use a new code for each event.</p>
+    <label for="audience">Send to</label>
+    <select id="audience">
+      <option value="ALL">ALL TEAM</option>
+      <option value="Sound / DJ">Sound / DJ</option>
+      <option value="Backstage">Backstage</option>
+      <option value="Stage management">Stage management</option>
+      <option value="Anchoring">Anchoring</option>
+      <option value="Photography / Video">Photography / Video</option>
+    </select>
+    <label for="priority">Message type</label>
+    <select id="priority">
+      <option value="normal">NORMAL</option>
+      <option value="urgent">URGENT</option>
+      <option value="go">GO</option>
+      <option value="stop">STOP</option>
+    </select>
+    <label for="message">Message</label>
+    <textarea id="message" maxlength="500" placeholder="Type your announcement..."></textarea>
+    <div class="row">
+      <button id="sendBtn">Send full-screen message</button>
+      <button class="danger" id="clearBtn">Clear display</button>
+    </div>
+    <div id="sendStatus" class="status">Connect Firebase and enter a room code to begin.</div>
+    <hr>
+    <h2>Team acknowledgements</h2>
+    <div id="acks" class="small">No acknowledgements yet.</div>
+  </section>
+
+  <section class="card hidden" id="displayPanel">
+    <h2>Team display</h2>
+    <label for="displayRoom">Event room code</label>
+    <input id="displayRoom" placeholder="Enter code shared by controller" autocomplete="off">
+    <label for="department">This phone belongs to</label>
+    <select id="department">
+      <option>Sound / DJ</option><option>Backstage</option><option>Stage management</option><option>Anchoring</option><option>Photography / Video</option>
+    </select>
+    <div class="row">
+      <button id="joinBtn">Join event display</button>
+      <button class="secondary" id="fullscreenBtn">Full screen</button>
+    </div>
+    <div id="displayStatus" class="status">Waiting to join an event.</div>
+    <div id="displayScreen" class="normal" style="margin-top:16px">
+      <div class="pill" id="displayPriority">READY</div>
+      <div id="displayTarget">ANNUAL FUNCTION</div>
+      <div id="displayMessage">Waiting for your event controller…</div>
+      <div id="displayMeta">Keep this page open to receive live commands.</div>
+      <button class="ack hidden" id="ackBtn">ACKNOWLEDGE</button>
+    </div>
+  </section>
+</main>
+<footer>Prototype note: the display phone must keep this webpage open and connected to the internet. Full-screen mode requires a tap on each phone. Do not use this prototype for emergency or life-safety instructions; keep normal event communication available as backup.</footer>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+let app=null, db=null, user=null, activeRoom=null, messageRef=null, ackRef=null, currentMessageId=null, role='controller';
+const $=id=>document.getElementById(id);
+function status(id,msg,kind=''){ $(id).textContent=msg; $(id).className='status '+kind; }
+function randomCode(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<12;i++)s+=chars[Math.floor(Math.random()*chars.length)];return s;}
+function safeRoom(s){return (s||'').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,40);}
+function showRole(r){
+ role=r; $('controllerPanel').classList.toggle('hidden',r!=='controller');
+ $('displayPanel').classList.toggle('hidden',r!=='display');
+ $('controllerTab').className=r==='controller'?'':'secondary';
+ $('displayTab').className=r==='display'?'':'secondary';
+}
+$('controllerTab').onclick=()=>showRole('controller');
+$('displayTab').onclick=()=>showRole('display');
+$('showHelpBtn').onclick=()=>$('help').classList.toggle('hidden');
+$('createRoomBtn').onclick=()=>{$('roomCode').value=randomCode();status('sendStatus','New room code generated. Share it privately with your team.','ok');};
+$('connectBtn').onclick=async()=>{
+ try{
+  const cfg=JSON.parse($('firebaseConfig').value);
+  if(!cfg.apiKey||!cfg.databaseURL)throw new Error('Config must include apiKey and databaseURL.');
+  if(!firebase.apps.length)app=firebase.initializeApp(cfg);else app=firebase.app();
+  await firebase.auth().signInAnonymously();
+  user=firebase.auth().currentUser;db=firebase.database();
+  status('connectionStatus','Connected to Firebase. You can now create or join an event room.','ok');
+  localStorage.setItem('afcc_firebase_config',$('firebaseConfig').value);
+ }catch(e){status('connectionStatus','Connection failed: '+e.message,'err');}
+};
+try{$('firebaseConfig').value=localStorage.getItem('afcc_firebase_config')||'';}catch(e){}
+$('sendBtn').onclick=async()=>{
+ const room=safeRoom($('roomCode').value), text=$('message').value.trim();
+ if(!db||!user){status('sendStatus','Connect Firebase first.','err');return;}
+ if(room.length<8){status('sendStatus','Use a room code of at least 8 characters.','err');return;}
+ if(!text){status('sendStatus','Type a message first.','err');return;}
+ const payload={id:Date.now().toString(),text,audience:$('audience').value,priority:$('priority').value,sentAt:Date.now(),sender:user.uid};
+ try{await db.ref('rooms/'+room+'/current').set(payload);activeRoom=room;currentMessageId=payload.id;status('sendStatus','Message sent to '+payload.audience+'.','ok');watchAcks(room,payload.id);}
+ catch(e){status('sendStatus','Could not send: '+e.message,'err');}
+};
+$('clearBtn').onclick=async()=>{
+ const room=safeRoom($('roomCode').value);if(!db||!room)return;
+ try{await db.ref('rooms/'+room+'/current').remove();status('sendStatus','Display cleared.','ok');}
+ catch(e){status('sendStatus','Could not clear: '+e.message,'err');}
+};
+function watchAcks(room,id){
+ $('acks').textContent='Waiting for acknowledgements…';
+ if(ackRef)ackRef.off();
+ ackRef=db.ref('rooms/'+room+'/acks/'+id);
+ ackRef.on('value',snap=>{
+  const val=snap.val()||{}, rows=Object.values(val);
+  $('acks').textContent=rows.length?rows.map(x=>x.department+' — '+x.name+' — '+new Date(x.at).toLocaleTimeString()).join('\n'):'No acknowledgements yet.';
+ });
+}
+$('joinBtn').onclick=async()=>{
+ const room=safeRoom($('displayRoom').value);
+ if(!db||!user){status('displayStatus','Connect Firebase on this phone first using the same project config.','err');return;}
+ if(room.length<8){status('displayStatus','Enter the event room code.','err');return;}
+ activeRoom=room;status('displayStatus','Connected. Waiting for commands…','ok');
+ if(messageRef)messageRef.off();
+ messageRef=db.ref('rooms/'+room+'/current');
+ messageRef.on('value',snap=>{
+  const m=snap.val();
+  if(!m){$('displayPriority').textContent='READY';$('displayTarget').textContent='ANNUAL FUNCTION';$('displayMessage').textContent='Waiting for your event controller…';$('displayMeta').textContent='Keep this page open to receive live commands.';$('ackBtn').classList.add('hidden');$('displayScreen').className='normal';return;}
+  const dept=$('department').value;
+  if(m.audience!=='ALL'&&m.audience!==dept)return;
+  currentMessageId=m.id;
+  $('displayPriority').textContent=m.priority.toUpperCase();
+  $('displayTarget').textContent=m.audience==='ALL'?'ALL TEAM':m.audience;
+  $('displayMessage').textContent=m.text;
+  $('displayMeta').textContent='Received '+new Date(m.sentAt).toLocaleTimeString();
+  $('displayScreen').className=m.priority;
+  $('ackBtn').classList.remove('hidden');
+  if(navigator.vibrate)navigator.vibrate(m.priority==='urgent'?[250,100,250]:[150]);
+ });
+};
+$('department').onchange=()=>{if(activeRoom&&messageRef){messageRef.off();$('joinBtn').click();}};
+$('ackBtn').onclick=async()=>{
+ if(!db||!activeRoom||!currentMessageId)return;
+ const name=prompt('Enter your name or team role for acknowledgement:')||'Team member';
+ try{await db.ref('rooms/'+activeRoom+'/acks/'+currentMessageId+'/'+user.uid).set({name:name.slice(0,50),department:$('department').value,at:Date.now()});status('displayStatus','Acknowledgement sent.','ok');}
+ catch(e){status('displayStatus','Acknowledgement failed: '+e.message,'err');}
+};
+$('fullscreenBtn').onclick=async()=>{
+ try{await $('displayScreen').requestFullscreen();}catch(e){status('displayStatus','Full-screen mode was not available: '+e.message,'err');}
+};
+</script>
+</body>
+</html>
